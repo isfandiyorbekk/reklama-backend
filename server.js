@@ -16,12 +16,11 @@ app.use(
       "https://reklama.uz",
       "https://www.reklama.uz",
       "http://localhost:5173", // Localhost uchun
-      "https://reklamaa.netlify.app/",
+      "https://reklamaa.netlify.app",
     ],
     credentials: true,
   }),
 );
-
 app.use(express.json());
 
 // 🟢 UptimeRobot va server holatini tekshirish uchun asosiy sahifa (Ping)
