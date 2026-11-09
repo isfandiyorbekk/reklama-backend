@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const mongoose = require("mongoose");
 const Announcement = require("../models/Announcement");
 
 // Multer sozlamalari
@@ -62,12 +63,13 @@ async function uploadImageToImgBB(file) {
   return result.data.url;
 }
 
-// E'lon yaratish
+// =====================================
+// 1. E'lon yaratish
+// =====================================
 router.post("/create", upload.array("images", 10), async (req, res) => {
   try {
     const { title, category, location, description } = req.body;
 
-    // Majburiy maydonlarni tekshirish
     if (!title || !category || !location || !description) {
       return res.status(400).json({
         message: "Barcha maydonlarni to'ldiring!",
@@ -83,7 +85,7 @@ router.post("/create", upload.array("images", 10), async (req, res) => {
       imageUrls.push(imageUrl);
     }
 
-    // E'lonni MongoDB ga saqlash
+    // MongoDB ga saqlash
     const newAnnouncement = new Announcement({
       title,
       category,
@@ -108,7 +110,9 @@ router.post("/create", upload.array("images", 10), async (req, res) => {
   }
 });
 
-// Barcha e'lonlarni olish
+// =====================================
+// 2. Barcha e'lonlarni olish
+// =====================================
 router.get("/all", async (req, res) => {
   try {
     const announcements = await Announcement.find().sort({
@@ -121,6 +125,46 @@ router.get("/all", async (req, res) => {
 
     return res.status(500).json({
       message: "Ma'lumotlarni olishda xatolik.",
+    });
+  }
+});
+
+// =====================================
+// 3. ID orqali bitta e'lonni olish
+// DETAIL PAGE API
+// =====================================
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ID to'g'riligini tekshirish
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "E'lon ID noto'g'ri!",
+      });
+    }
+
+    // MongoDB dan ID bo'yicha qidirish
+    const announcement = await Announcement.findById(id);
+
+    // E'lon topilmasa
+    if (!announcement) {
+      return res.status(404).json({
+        message: "Bunday e'lon topilmadi!",
+      });
+    }
+
+    // E'lon ma'lumotlarini qaytarish
+    return res.status(200).json({
+      message: "E'lon muvaffaqiyatli topildi!",
+      data: announcement,
+    });
+  } catch (error) {
+    console.error("Detail Page xatosi:", error.message);
+
+    return res.status(500).json({
+      message: "E'lon ma'lumotlarini olishda xatolik!",
+      error: error.message,
     });
   }
 });
