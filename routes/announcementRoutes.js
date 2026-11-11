@@ -68,9 +68,9 @@ async function uploadImageToImgBB(file) {
 // =====================================
 router.post("/create", upload.array("images", 10), async (req, res) => {
   try {
-    const { title, category, location, description } = req.body;
+    const { title, category, location, description, number } = req.body;
 
-    if (!title || !category || !location || !description) {
+    if (!title || !category || !location || !description || !number) {
       return res.status(400).json({
         message: "Barcha maydonlarni to'ldiring!",
       });
@@ -91,6 +91,7 @@ router.post("/create", upload.array("images", 10), async (req, res) => {
       category,
       location,
       description,
+      number,
       images: imageUrls,
     });
 
