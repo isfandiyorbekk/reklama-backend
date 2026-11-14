@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
 
 const announcementRoutes = require("./routes/announcementRoutes");
@@ -22,7 +23,7 @@ app.use(
   }),
 );
 app.use(express.json());
-
+app.use("/api/auth", authRoutes);
 // 🟢 UptimeRobot va server holatini tekshirish uchun asosiy sahifa (Ping)
 app.get("/", (req, res) => {
   res.status(200).json({
