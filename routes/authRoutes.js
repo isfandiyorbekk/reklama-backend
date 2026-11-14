@@ -1,6 +1,13 @@
 const express = require("express");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+
+function generateToken(user) {
+  return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
+}
 
 router.post("/register", async (req, res) => {
   try {
@@ -18,7 +25,7 @@ router.post("/register", async (req, res) => {
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: "Bu telefon raqam allaqachon ro'yxatdan o'tgan",
+        message: "Bu raqam allaqachon ro'yxatdan o'tgan",
       });
     }
 
@@ -28,23 +35,61 @@ router.post("/register", async (req, res) => {
       phone,
     });
 
-    res.status(201).json({
+    const token = generateToken(user);
+
+    return res.status(201).json({
       success: true,
-      message: "Ro'yxatdan o'tish muvaffaqiyatli!",
+      token,
       user: {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
-        phoneVerified: user.phoneVerified,
       },
     });
   } catch (error) {
     console.error(error);
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Serverda xatolik yuz berdi",
+      message: "Server xatosi",
+    });
+  }
+});
+
+router.get("/me", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Token mavjud emas",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.userId).select(
+      "firstName lastName phone",
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Foydalanuvchi topilmadi",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(401).json({
+      success: false,
+      message: "Token yaroqsiz yoki muddati tugagan",
     });
   }
 });
