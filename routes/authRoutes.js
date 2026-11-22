@@ -5,10 +5,48 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Announcement = require("../models/Announcement");
 
+// ================= GENERATE TOKEN =================
+
 function generateToken(user) {
   return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
+}
+
+// ================= AUTH MIDDLEWARE =================
+
+async function authMiddleware(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Tizimga kirish talab qilinadi",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.userId).select("_id");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Foydalanuvchi topilmadi",
+      });
+    }
+
+    req.userId = user._id;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Token yaroqsiz yoki muddati tugagan",
+    });
+  }
 }
 
 // ================= REGISTER =================
@@ -52,7 +90,7 @@ router.post("/register", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Register xatosi:", error);
 
     return res.status(500).json({
       success: false,
@@ -93,7 +131,7 @@ router.get("/me", async (req, res) => {
       user,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Profil olish xatosi:", error);
 
     return res.status(401).json({
       success: false,
@@ -102,36 +140,54 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// ================= DELETE ACCOUNT =================
+// ================= DELETE ONE ANNOUNCEMENT =================
 
-router.delete("/delete-account", async (req, res) => {
+router.delete("/announcement/:id", authMiddleware, async (req, res) => {
   try {
-    // Tokenni tekshirish
-    const authHeader = req.headers.authorization;
+    const { id } = req.params;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
         success: false,
-        message: "Tizimga kirish talab qilinadi",
+        message: "E'lon ID noto'g'ri",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    // Faqat foydalanuvchining o'z e'lonini topamiz
+    const announcement = await Announcement.findOne({
+      _id: id,
+      user: req.userId,
+    });
 
-    // Tokenni tasdiqlash
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const userId = decoded.userId;
-
-    // Foydalanuvchini tekshirish
-    const user = await User.findById(userId);
-
-    if (!user) {
+    if (!announcement) {
       return res.status(404).json({
         success: false,
-        message: "Foydalanuvchi topilmadi",
+        message: "E'lon topilmadi yoki sizga tegishli emas",
       });
     }
+
+    // E'lonni MongoDB'dan o'chiramiz
+    await Announcement.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "E'lon muvaffaqiyatli o'chirildi",
+    });
+  } catch (error) {
+    console.error("E'lonni o'chirish xatosi:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "E'lonni o'chirishda server xatosi",
+    });
+  }
+});
+
+// ================= DELETE ACCOUNT =================
+
+router.delete("/delete-account", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
 
     // Foydalanuvchining barcha e'lonlarini o'chirish
     await Announcement.deleteMany({
