@@ -1,13 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+
 const User = require("../models/User");
+const Announcement = require("../models/Announcement");
 
 function generateToken(user) {
   return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
 }
+
+// ================= REGISTER =================
 
 router.post("/register", async (req, res) => {
   try {
@@ -49,12 +53,15 @@ router.post("/register", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
     return res.status(500).json({
       success: false,
       message: "Server xatosi",
     });
   }
 });
+
+// ================= GET PROFILE =================
 
 router.get("/me", async (req, res) => {
   try {
@@ -71,7 +78,7 @@ router.get("/me", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.userId).select(
-      "firstName lastName phone",
+      "firstName lastName phone createdAt",
     );
 
     if (!user) {
@@ -87,9 +94,63 @@ router.get("/me", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
     return res.status(401).json({
       success: false,
       message: "Token yaroqsiz yoki muddati tugagan",
+    });
+  }
+});
+
+// ================= DELETE ACCOUNT =================
+
+router.delete("/delete-account", async (req, res) => {
+  try {
+    // Tokenni tekshirish
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Tizimga kirish talab qilinadi",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    // Tokenni tasdiqlash
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const userId = decoded.userId;
+
+    // Foydalanuvchini tekshirish
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Foydalanuvchi topilmadi",
+      });
+    }
+
+    // Foydalanuvchining barcha e'lonlarini o'chirish
+    await Announcement.deleteMany({
+      user: userId,
+    });
+
+    // Foydalanuvchi profilini o'chirish
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Profil va unga tegishli e'lonlar muvaffaqiyatli o'chirildi",
+    });
+  } catch (error) {
+    console.error("Profilni o'chirish xatosi:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Profilni o'chirishda server xatosi",
     });
   }
 });
