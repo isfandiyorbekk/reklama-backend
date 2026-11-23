@@ -19,6 +19,7 @@ app.use(
       "https://www.reklama.uz",
       "http://localhost:5173", // Localhost uchun
       "https://reklama-isfandiyorbek.netlify.app",
+      "https://reklama-uz-nine.vercel.app",
     ],
     credentials: true,
   }),
